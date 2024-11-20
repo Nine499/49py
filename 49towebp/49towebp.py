@@ -32,14 +32,18 @@ def convert_images(source_folder, output_folder, quality):
         os.makedirs(output_folder)
 
     # 遍历源文件夹及其子目录中的所有图片
+    image_paths = []
     for root, _, files in os.walk(source_folder):
         for file in files:
             if file.lower().endswith(('.png', '.jpg', '.jpeg')):
-                image_path = os.path.join(root, file)
-                # 使用多线程处理每个图片
-                with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
-                    future = executor.submit(resize_and_convert, image_path, output_folder, quality)
-                    concurrent.futures.wait([future])
+                image_paths.append(os.path.join(root, file))
+
+    # 使用一个线程池处理所有图片
+    with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
+        futures = [executor.submit(resize_and_convert, image_path, output_folder, quality) for image_path in image_paths]
+        for future in concurrent.futures.as_completed(futures):
+            future.result()  # 确保无异常
+
 
 if __name__ == "__main__":
     import sys
