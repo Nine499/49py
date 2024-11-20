@@ -38,7 +38,8 @@ def convert_images(source_folder, output_folder, quality):
                 image_path = os.path.join(root, file)
                 # 使用多线程处理每个图片
                 with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
-                    executor.submit(resize_and_convert, image_path, output_folder, quality)
+                    future = executor.submit(resize_and_convert, image_path, output_folder, quality)
+                    concurrent.futures.wait([future])
 
 if __name__ == "__main__":
     import sys
