@@ -44,6 +44,13 @@ def convert_images(source_folder, output_folder, quality):
         for future in concurrent.futures.as_completed(futures):
             future.result()  # 确保无异常
 
+def get_unique_output_path(output_path):
+    base, ext = os.path.splitext(output_path)
+    counter = 1
+    while os.path.exists(output_path):
+        output_path = f"{base}_{counter}{ext}"
+        counter += 1
+    return output_path
 
 if __name__ == "__main__":
     import sys
