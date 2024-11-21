@@ -1,66 +1,53 @@
-import os
-import shutil
-from PIL import Image
-import concurrent.futures
+import os  # 导入操作系统模块，用于文件路径操作
+import argparse  # 导入命令行参数解析模块
+from PIL import Image  # 从PIL库导入Image模块，用于图像处理
+import concurrent.futures  # 导入并发模块，用于多线程处理
 
-def resize_and_convert(image_path, output_folder, quality):
+
+def convert_image_to_webp(input_image_path, output_folder, quality):
     try:
-        # 打开图片
-        with Image.open(image_path) as img:
-            # 获取图片尺寸
-            width, height = img.size
-
-            # 判断是否需要缩小图片
-            if width > 5000 or height > 5000:
-                # 计算等比例缩小的尺寸
-                ratio = 5000 / max(width, height)
-                new_width = int(width * ratio)
-                new_height = int(height * ratio)
-                img = img.resize((new_width, new_height), Image.LANCZOS)
-
-            # 保存为WEBP格式
-            output_path = os.path.join(output_folder, os.path.basename(image_path) + '.webp')
-            img.save(output_path, 'WEBP', quality=quality)
-
-        print(f"Converted and saved: {output_path}")
+        image = Image.open(input_image_path)  # 打开输入图像
+        # 如果图像尺寸超过5000像素，则进行缩放
+        if max(image.width, image.height) > 5000:
+            ratio = 5000 / max(image.width, image.height)  # 计算缩放比例
+            new_size = (int(image.width * ratio),
+                        int(image.height * ratio))  # 计算新尺寸
+            image = image.resize(new_size, Image.ANTIALIAS)  # 缩放图像
+        # 保存图像为WEBP格式
+        output_image_path = os.path.join(
+            output_folder, os.path.basename(input_image_path) + '.webp')
+        image.save(output_image_path, 'WEBP', quality=quality)  # 设置图像质量和保存路径
+        # 打印转换成功信息
+        print(f"Converted {input_image_path} to {output_image_path}")
     except Exception as e:
-        print(f"Error converting {image_path}: {e}")
+        print(f"Error converting {input_image_path}: {e}")  # 打印转换错误信息
 
-def convert_images(source_folder, output_folder, quality):
-    # 创建输出文件夹，如果不存在
-    if not os.path.exists(output_folder):
-        os.makedirs(output_folder)
 
-    # 遍历源文件夹及其子目录中的所有图片
-    image_paths = []
-    for root, _, files in os.walk(source_folder):
-        for file in files:
-            if file.lower().endswith(('.png', '.jpg', '.jpeg')):
-                image_paths.append(os.path.join(root, file))
+def main():
+    # 解析命令行参数
+    parser = argparse.ArgumentParser(description='Convert images to WEBP.')
+    parser.add_argument(
+        'input_folder', help='Input folder containing images.')  # 输入文件夹路径
+    parser.add_argument(
+        'output_folder', help='Output folder for WEBP images.')  # 输出文件夹路径
+    parser.add_argument('quality', type=int,
+                        help='Quality of WEBP images (0-100).')  # WEBP图像质量
+    args = parser.parse_args()
 
-    # 使用一个线程池处理所有图片
+    # 如果输出文件夹不存在，则创建
+    if not os.path.exists(args.output_folder):
+        os.makedirs(args.output_folder)
+
+    # 查找输入文件夹中的所有图像文件
+    images = [os.path.join(args.input_folder, f) for f in os.listdir(
+        args.input_folder) if f.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.gif'))]
+
+    # 使用多线程将图像转换为WEBP格式
     with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
-        futures = [executor.submit(resize_and_convert, image_path, output_folder, quality) for image_path in image_paths]
-        for future in concurrent.futures.as_completed(futures):
-            future.result()  # 确保无异常
+        for image_path in images:
+            executor.submit(convert_image_to_webp, image_path,
+                            args.output_folder, args.quality)
 
-def get_unique_output_path(output_path):
-    base, ext = os.path.splitext(output_path)
-    counter = 1
-    while os.path.exists(output_path):
-        output_path = f"{base}_{counter}{ext}"
-        counter += 1
-    return output_path
 
-if __name__ == "__main__":
-    import sys
-
-    if len(sys.argv) != 4:
-        print("Usage: python script.py <source_folder> <output_folder> <quality>")
-        sys.exit(1)
-
-    source_folder = sys.argv[1]
-    output_folder = sys.argv[2]
-    quality = int(sys.argv[3])
-
-    convert_images(source_folder, output_folder, quality)
+if __name__ == '__main__':
+    main()
